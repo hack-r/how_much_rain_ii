@@ -84,12 +84,18 @@ train.samp1$outlier <- NULL
 train.samp.scores  <- scores(train.samp,  type = "mad", prob = 1)
 train.samp1.scores <- scores(train.samp1, type = "mad", prob = 1)
 
-train.samp.scores$Id  <- train.samp$Id
-train.samp1.scores$Id <- train.samp1$Id
+train.samp.scores$Id1  <- train.samp$Id
+train.samp1.scores$Id1 <- train.samp1$Id
+train.samp.scores$Id   <- NULL
+train.samp1.scores$Id  <- NULL
 
-# TO DO -- append colnames, cbind, use in prediction
 colnames(train.samp.scores)  <- paste(colnames(train.samp.scores), "_mad", sep = "")
 colnames(train.samp1.scores) <- paste(colnames(train.samp1.scores), "_mad", sep = "")
+
+train.samp             <- cbind(train.samp, train.samp.scores)
+train.samp1            <- cbind(train.samp1, train.samp1.scores)
+train.samp.scores$Id1  <- NULL
+train.samp1.scores$Id1 <- NULL
 
 # Incorporate Marshall Palmer ---------------------------------------------
 if(useMP & !(fullSet)){
