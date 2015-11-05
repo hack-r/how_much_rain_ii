@@ -89,6 +89,9 @@ train.samp1.scores$Id1 <- train.samp1$Id
 train.samp.scores$Id   <- NULL
 train.samp1.scores$Id  <- NULL
 
+train.samp.scores$Expected_mad  <- NULL
+train.samp1.scores$Expected_mad <- NULL
+
 colnames(train.samp.scores)  <- paste(colnames(train.samp.scores), "_mad", sep = "")
 colnames(train.samp1.scores) <- paste(colnames(train.samp1.scores), "_mad", sep = "")
 
@@ -96,6 +99,8 @@ train.samp             <- cbind(train.samp, train.samp.scores)
 train.samp1            <- cbind(train.samp1, train.samp1.scores)
 train.samp.scores$Id1  <- NULL
 train.samp1.scores$Id1 <- NULL
+train.samp$Id_mad      <- NULL
+train.samp1$Id_mad     <- NULL
 
 # Incorporate Marshall Palmer ---------------------------------------------
 if(useMP & !(fullSet)){
@@ -198,10 +203,20 @@ if(useMP & fullSet){
 # Transform for ML --------------------------------------------------------
 id <- train.samp$Id
 id1<- train.samp1$Id
-x  <- train.samp[,!(colnames(train.samp) %in% c("Id", "Expected"))]
-x1 <- train.samp1[,!(colnames(train.samp1) %in% c("Id", "Expected"))]
+x  <- train.samp[,!(colnames(train.samp) %in% c("Id", "Id1", "Expected"))]
+x1 <- train.samp1[,!(colnames(train.samp1) %in% c("Id", "Id1", "Expected"))]
 y  <- train.samp$Expected
 y1 <- train.samp1$Expected
+
+# Just to be safe...
+x$Id1      <- NULL
+x$Id       <- NULL
+x$Id_mad   <- NULL
+x1$Id1_mad <- NULL
+x1$Id1     <- NULL
+x1$Id      <- NULL
+x1$Id_mad  <- NULL
+x1$Id1_mad <- NULL
 
 # Imputation --------------------------------------------------------------
 # Use Amelia II

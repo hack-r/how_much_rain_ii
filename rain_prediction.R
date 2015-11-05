@@ -5,25 +5,31 @@
 # Description: This script runs the best model on the unlabeled test data
 # ------------------------------------------------------------------------
 
-
-# Predict Outlier Prob ----------------------------------------------------
-
+# Load --------------------------------------------------------------------
+test <- readRDS("test.RDS")
+id   <- test$Id
 
 # Imputation --------------------------------------------------------------
-test <- myAmelia(test, iterations = 10)
+#final.imputed.ppm <- MyAmelia(test = test, iterations = 3)
+test <- na.roughfix(test)
 
-# Break apart test data into manageable pieces ----------------------------
-# Make sure all obs for the same ID are in the same object
-test <- test[order(test$Id),]
-n    <- 1
 
-for(i in (length(unique(test$Id))/5)){
- test$subfile <- n
- n <- n + 1
-}
+# Add MP ------------------------------------------------------------------
+test$mp <- mpalmer(ref = test$Ref, minutes_past = test$minutes_past)
 
-test.1 <- test[test$subfile == 1, ]
-test.2 <- test[test$subfile == 2, ]
-test.3 <- test[test$subfile == 3, ]
-test.4 <- test[test$subfile == 4, ]
-test.5 <- test[test$subfile == 5, ]
+# Predict Outlier Prob ----------------------------------------------------
+test.mad.scores            <- scores(test,  type = "mad", prob = 1)
+test.mad.scores$Id         <- NULL
+test.mad.scores$Id_mad     <- NULL
+colnames(test.mad.scores)  <- paste(colnames(test.mad.scores), "_mad", sep = "")
+test             <- cbind(test, test.mad.scores)
+rm(test.mad.scores)
+
+# Run prediction ----------------------------------------------------------
+predicted  <- predict(GRF,  test)
+
+# Write out results -------------------------------------------------------
+test$Prediction <- Prediction
+res <- sqldf("select Id, max(minutes_past) as max_min, Prediction as Expected from test group by Id")
+res$max_min <- NULL
+write.csv(res, "id_forecast.csv")

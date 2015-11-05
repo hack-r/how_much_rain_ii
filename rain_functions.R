@@ -19,14 +19,13 @@ hpc     <- T # attempt to use HPC
 
 # Libraries ---------------------------------------------------------------
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(caret, data.table, devtools, dplyr, hydroGOF,
+pacman::p_load(Amelia,caret, data.table, devtools, fitdistrplus, dplyr, hydroGOF,
                outliers, radar, RRF, sqldf) #raincpc, RDSTK
-
 
 # HPC Setup ---------------------------------------------------------------
 if (hpc){
-  p_load(doParallel, foreach, parallel)
-  cores_2_use <- detectCores() / 2
+  p_load(doParallel, foreach, parallel, snow)
+  cores_2_use <- detectCores() - 4
   cl          <- makeCluster(cores_2_use)
   clusterSetRNGStream(cl, 9956)
   registerDoParallel(cl, cores_2_use)
@@ -45,20 +44,20 @@ myAmelia <- function (test, iterations = 10) {
   #End user-defined variables
   #-------------------------------->
 
-  #Read in data
-  data.ppm <- read.table(test, sep=",", header=TRUE, na.strings="NA", row.names="ANID")
+  rn <- paste( "ANID", seq(1:nrow(test)), sep = " ")
+  row.names(test) <- rn
 
   #Create Vector of ANIDs
-  anid.list <- c(rep(row.names(data.ppm), iter))
+  anid.list <- c(rep(row.names(test), iter))
 
   #Log transform data
-  data.log <- log10(data.ppm)
+  #data.log <- log10(test)
 
   #Impute missing values
-  imputed.log <- amelia(data.log, m = iter)
+  imputed <- amelia(test,p2s =2, m = iter, parallel = "snow", cl = parallel::makePSOCKcluster(20), ncpus = 20, idvars = c("Id")) #cl = cl,
 
   #Write each imputed test to files
-  write.amelia(obj=imputed.log, file.stem = "imputed_")
+  write.amelia(obj=imputed, file.stem = "imputed_")
 
   #Create list of the imputed files
   imputed.files = list.files(pattern = 'imputed_*')
@@ -67,16 +66,16 @@ myAmelia <- function (test, iterations = 10) {
   imputed.list = lapply(imputed.files, read.csv, header=TRUE, row.names = "X")
 
   #Compile all imputed data into one big data frame
-  big.list <- ldply(imputed.list, data.frame)
+  imputed.ppm <- ldply(imputed.list, data.frame, row.names=NULL)
 
   #Set variable y, which is the base-10 log concentration of each specimen
-  y = big.list
+  #y = big.list
 
   #Use variable y to convert data back to ppm
-  imputed.ppm <- 10^y
+  #imputed.ppm <- 10^y
 
   #Convert imputed data to data frame
-  imputed.ppm <- data.frame(imputed.ppm, row.names=NULL)
+  #imputed.ppm <- data.frame(imputed.ppm, row.names=NULL)
 
   #Insert ANIDs into imputed data data frame
   imputed.ppm$ANID <- anid.list
@@ -156,6 +155,20 @@ mpalmer <- function(ref, minutes_past) {
 
   return(sum)
 
+}
+
+estBetaParams <- function(mu, var) {
+  # from https://stats.stackexchange.com/questions/12232/calculating-the-parameters-of-a-beta-distribution-using-the-mean-and-variance
+  alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
+  beta <- alpha * (1 / mu - 1)
+  return(params = list(alpha = alpha, beta = beta))
+}
+
+resetPar <- function() {
+  dev.new()
+  op <- par(no.readonly = TRUE)
+  dev.off()
+  op
 }
 
 #  results <- test %>% group_by(Id) %>% summarize(Expected=sum)

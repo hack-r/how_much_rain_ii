@@ -139,7 +139,7 @@ if(!(hpc) & mod == 4){
 system.time(
 RF    <- RRF(x, y, flagReg = 0, ntree = 50, mtry = (ncol(x)),
                keep.forest=T, ytest=y1, xtest=x1,#strata = x$,
-               corr.bias = F, do.trace = T)
+               corr.bias = T, do.trace = T)
 )
   # In Sample CV
   pred0  <- predict(RF,  x1)
@@ -149,6 +149,7 @@ RF    <- RRF(x, y, flagReg = 0, ntree = 50, mtry = (ncol(x)),
   saveRDS(RF, "RF.RDS")
 
   # Out of Sample test
+  train.oos  <- sample_n(train.samp, 10000)
   pred_oos   <- predict(RF,train.oos)
   summary(round((pred_oos)))
   summary(round((train.oos$Expected)))
