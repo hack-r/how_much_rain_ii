@@ -7,22 +7,22 @@
 
 # Load raw data -----------------------------------------------------------
 if(useRDS == F & useRAW){
-  train.raw <- read.csv("train.csv")
-  test.raw  <- read.csv("test.csv")
-  saveRDS(train.raw, "train.RDS")
-  saveRDS(test.raw, "test.RDS")
+  train  <- read.csv("train.csv")
+  test   <- read.csv("test.csv")
+  saveRDS(train, "train.RDS")
+  saveRDS(test, "test.RDS")
 }
 
 if(useRDS & useRAW){
-  train.raw <- readRDS("train.RDS")
-  test.raw  <- readRDS("test.RDS")
+  train <- readRDS("train.RDS")
+  test  <- readRDS("test.RDS")
 }
 
 # Clean -------------------------------------------------------------------
 # Delete ID's with completely non-NULL data (other than minutes and radar distance)
 if(useRDS == F){
-  train.clean <- train.raw
-  rm(train.raw)
+  train.clean <- train
+  rm(train)
   train.clean$delete                         <- 0
   train.clean$delete[is.na(train.clean$Ref)] <- 1
 
@@ -43,6 +43,8 @@ if(perfect){
   train   <- na.omit(train)
 }
 
+
+
 # Sample training data ----------------------------------------------------
 if(fullset){
   n           <- nrow(train) - 25000
@@ -52,8 +54,8 @@ if(fullset){
   rm(train, n, n1)
 }else {
   train.samp  <- sample_n(train, 20000)
-  train.samp1 <- sample_n(train, 20000)
-  train.oos   <- sample_n(train, 20000)
+  train.samp1 <- sample_n(train, 10000)
+  train.oos   <- sample_n(train, 10000)
 }
 
 # Outlier Correction ------------------------------------------------------
@@ -64,13 +66,13 @@ summary(train.samp$Expected)
 summary(train.samp1$Expected)
 
 train.samp$outlier  <- scores(train.samp$Expected, type = "iqr")
-train.samp          <- train.samp[train.samp$outlier < 26,]
+train.samp          <- train.samp[train.samp$outlier < 29,]
 train.samp          <- train.samp[!(train.samp$Expected < 0),]
 d                   <- density(train.samp$Expected)
 plot(d)
 
 train.samp1$outlier  <- scores(train.samp1$Expected, type = "iqr", prob = 1)
-train.samp1          <- train.samp1[train.samp1$outlier < 26,]
+train.samp1          <- train.samp1[train.samp1$outlier < 29,]
 train.samp1          <- train.samp1[!(train.samp1$Expected < 0),]
 d                    <- density(train.samp1$Expected)
 plot(d)
@@ -81,13 +83,15 @@ summary(train.samp1$Expected)
 train.samp$outlier  <- NULL
 train.samp1$outlier <- NULL
 
-train.samp.scores  <- scores(train.samp,  type = "mad", prob = 1)
-train.samp1.scores <- scores(train.samp1, type = "mad", prob = 1)
+train.samp.scores  <- scores(train.samp[,!(colnames(train.samp) %in% c("Id", "Expected"))],  type = "mad", prob = 1)
+train.samp1.scores <- scores(train.samp1[,!(colnames(train.samp1) %in% c("Id", "Expected"))], type = "mad", prob = 1)
 
 train.samp.scores$Id1  <- train.samp$Id
 train.samp1.scores$Id1 <- train.samp1$Id
 train.samp.scores$Id   <- NULL
 train.samp1.scores$Id  <- NULL
+train.samp.scores$Id_mad   <- NULL
+train.samp1.scores$Id_mad  <- NULL
 
 train.samp.scores$Expected_mad  <- NULL
 train.samp1.scores$Expected_mad <- NULL
@@ -101,6 +105,10 @@ train.samp.scores$Id1  <- NULL
 train.samp1.scores$Id1 <- NULL
 train.samp$Id_mad      <- NULL
 train.samp1$Id_mad     <- NULL
+train.samp$Id1_mad      <- NULL
+train.samp1$Id1_mad     <- NULL
+train.samp$Expected_mad  <- NULL
+train.samp1$Expected_mad <- NULL
 
 # Incorporate Marshall Palmer ---------------------------------------------
 if(useMP & !(fullSet)){
@@ -124,6 +132,15 @@ if(useMP & !(fullSet)){
 if(useMP & fullSet){
   train.samp      <- train.samp[order(train.samp$Id),]
   train.samp1     <- train.samp1[order(train.samp1$Id),]
+  #train.samp$Ref  <- train.samp$Ref_t1
+  #train.samp1$Ref <- train.samp1$Ref_t1
+  #train.samp$minutes_past  <- train.samp$max_minutes_past_t1
+  #train.samp1$minutes_past <- train.samp1$max_minutes_past_t1
+
+  train.samp$Ref_t1  <- NULL
+  train.samp1$Ref_t1 <- NULL
+  train.samp$max_minutes_past_t1  <- NULL
+  train.samp1$max_minutes_past_t1 <- NULL
 
   train.samp.id    <- unique(train.samp$Id)
   train.samp.id.1  <- train.samp.id[1:25000]
@@ -199,14 +216,34 @@ if(useMP & fullSet){
   )
 
 }
+# Reshape -----------------------------------------------------------------
+train.wide  <- sqldf("select Id, mp, max(minutes_past) as max_minutes_past, radardist_km,Ref,Ref_5x5_10th,Ref_5x5_50th,Ref_5x5_90th,RefComposite,RefComposite_5x5_10th,RefComposite_5x5_50th,RefComposite_5x5_90th,RhoHV,RhoHV_5x5_10th,RhoHV_5x5_50th,RhoHV_5x5_90th,Zdr,Zdr_5x5_10th,Zdr_5x5_50th,Zdr_5x5_90th,Kdp,Kdp_5x5_10th,Kdp_5x5_50th,Kdp_5x5_90th,Expected from 'train.samp' group by Id")
+train.wide2 <- sqldf("select Id, mp, min(minutes_past) as min_minutes_past, radardist_km,Ref,Ref_5x5_10th,Ref_5x5_50th,Ref_5x5_90th,RefComposite,RefComposite_5x5_10th,RefComposite_5x5_50th,RefComposite_5x5_90th,RhoHV,RhoHV_5x5_10th,RhoHV_5x5_50th,RhoHV_5x5_90th,Zdr,Zdr_5x5_10th,Zdr_5x5_50th,Zdr_5x5_90th,Kdp,Kdp_5x5_10th,Kdp_5x5_50th,Kdp_5x5_90th from 'train.samp' group by Id")
+rm(train)
+colnames(train.wide)   <- paste(colnames(train.wide), "_t1", sep = "")
+colnames(train.wide2)  <- paste(colnames(train.wide2), "_t2", sep = "")
+train.wide2$Id_t2      <- NULL
+train.wide$Id          <- train.wide$Id_t1
+train.wide$Id_t1       <- NULL
+
+train <- cbind(train.wide, train.wide2)
+rm(train.wide, train.wide2)
+train <- na.omit(train)
+
+train$Expected_t2 <- NULL
+train$Expected    <- train$Expected_t1
+train$Expected_t1 <- NULL
+saveRDS(train, "train_wide_clean.RDS")
+train.samp  <- sample_n(train, 15000)
+train.samp1 <- sample_n(train.samp1, 5000)
 
 # Transform for ML --------------------------------------------------------
-id <- train.samp$Id
-id1<- train.samp1$Id
-x  <- train.samp[,!(colnames(train.samp) %in% c("Id", "Id1", "Expected"))]
-x1 <- train.samp1[,!(colnames(train.samp1) %in% c("Id", "Id1", "Expected"))]
-y  <- train.samp$Expected
-y1 <- train.samp1$Expected
+id  <- train.samp$Id
+id1 <- train.samp1$Id
+x   <- train.samp[,!(colnames(train.samp) %in% c("Id", "Id1", "Expected", "Expected_mad"))]
+x1  <- train.samp1[,!(colnames(train.samp1) %in% c("Id", "Id1", "Expected", "Expected_mad"))]
+y   <- train.samp$Expected
+y1  <- train.samp1$Expected
 
 # Just to be safe...
 x$Id1      <- NULL
@@ -217,8 +254,14 @@ x1$Id1     <- NULL
 x1$Id      <- NULL
 x1$Id_mad  <- NULL
 x1$Id1_mad <- NULL
+x1$outlier <- NULL
+x$outlier  <- NULL
+x$Expected_mad   <- NULL
+x1$Expected_mad  <- NULL
+x$Expected       <- NULL
+x1$Expected      <- NULL
 
 # Imputation --------------------------------------------------------------
 # Use Amelia II
-x  <- na.roughfix(x)
-x1 <- na.roughfix(x1)
+#x  <- na.roughfix(x)
+#1 <- na.roughfix(x1)

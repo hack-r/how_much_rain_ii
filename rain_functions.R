@@ -21,12 +21,13 @@ hpc     <- T # attempt to use HPC
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(Amelia,caret, data.table, devtools, fitdistrplus, dplyr, hydroGOF,
                outliers, radar, RRF, sqldf) #raincpc, RDSTK
+install_bitbucket("mkuhn/parallelRandomForest", ref="parallelRandomForest")
 
 # HPC Setup ---------------------------------------------------------------
 if (hpc){
   p_load(doParallel, foreach, parallel, snow)
-  cores_2_use <- detectCores() - 4
-  cl          <- makeCluster(cores_2_use)
+  cores_2_use <- detectCores() - 2
+  cl          <- makeCluster(cores_2_use, useXDR = F)
   clusterSetRNGStream(cl, 9956)
   registerDoParallel(cl, cores_2_use)
 }
@@ -133,9 +134,7 @@ mpalmer <- function(ref, minutes_past) {
   valid_time <- rep(0, length(minutes_past))
   valid_time[1] <- minutes_past[1]
   if (length(valid_time) > 1) {
-    for (i in seq(2, length(minutes_past))) {
-      valid_time[i] <- minutes_past[i] - minutes_past[i-1]
-    }
+    valid_time[2:length(minutes_past)] = diff(minutes_past)
     valid_time[length(valid_time)] = valid_time[length(valid_time)] + 60 - sum(valid_time)
   } else {
     # if only 1 observation, make it valid for the entire hour
@@ -145,13 +144,7 @@ mpalmer <- function(ref, minutes_past) {
   valid_time = valid_time / 60
 
   # calculate hourly rain rates using marshall-palmer weighted by valid times
-  sum <- 0
-  for (i in seq(length(ref))) {
-    if (!is.na(ref[i])) {
-      mmperhr <- ((10^(ref[i]/10))/200) ^ 0.625
-      sum <- sum + mmperhr * valid_time[i]
-    }
-  }
+  sum = sum(((10^(ref/10))/200) ^ 0.625 * valid_time, na.rm = T)
 
   return(sum)
 

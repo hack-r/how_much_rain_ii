@@ -137,15 +137,15 @@ if(!(hpc) & mod == 3){
 if(!(hpc) & mod == 4){
 
 system.time(
-RF    <- RRF(x, y, flagReg = 0, ntree = 50, mtry = (ncol(x)),
-               keep.forest=T, ytest=y1, xtest=x1,#strata = x$,
+RF    <- RRF(x, y, flagReg = 0, ntree = 100, mtry = (ncol(x)),
+               keep.forest=T, strata = x$min_minutes_past_t2, #strata = x$, ytest=y1, xtest=x1,
                corr.bias = T, do.trace = T)
 )
   # In Sample CV
   pred0  <- predict(RF,  x1)
   summary(round((pred0)))
   summary(round((y1)))
-  mae(pred0, y1)
+  mae(pred0, y1) # 3.673331 with 45 var x, 100 trees and strata = x$min_minutes_past_t2
   saveRDS(RF, "RF.RDS")
 
   # Out of Sample test
@@ -153,7 +153,7 @@ RF    <- RRF(x, y, flagReg = 0, ntree = 50, mtry = (ncol(x)),
   pred_oos   <- predict(RF,train.oos)
   summary(round((pred_oos)))
   summary(round((train.oos$Expected)))
-  mae(pred_oos,train.oos$Expected)
+  mae(pred_oos,train.oos$Expected) # 2.174568 with 45 var x, 100 trees
 
   #print(length(RF$feaSet))
 
@@ -163,9 +163,11 @@ RF    <- RRF(x, y, flagReg = 0, ntree = 50, mtry = (ncol(x)),
   head(as.data.frame(impRF[order(impRF, decreasing = T)]), 20) # Just to make it easy to read
   gamma   <- .9
   coefReg <- (1-gamma) + gamma * impRF
-  GRF     <- RRF(x, y, flagReg = 1, coefReg = coefReg, mtry = (ncol(x)), ntree = 50,
-                 keep.forest=TRUE, #ytest=y1, xtest=x1 strata = x$carrera_grupo,
-                 corr.bias = T, do.trace = T)
+  system.time(
+    GRF     <- RRF(x, y, flagReg = 1, coefReg = coefReg, mtry = (ncol(x)), ntree = 100,
+                   keep.forest=TRUE, strata = x$min_minutes_past_t2, #ytest=y1, xtest=x1 strata = x$carrera_grupo,
+                   corr.bias = T, do.trace = T)
+   )
   saveRDS(GRF, "GRF.RDS")
   pred_grf_x1    <- predict(GRF,x1)
   summary(round((pred_grf_x1)))
@@ -199,12 +201,11 @@ if(!(hpc) & mod == 5){
   mae(pred0, y1)
 
   # Out of Sample test
+  train.oos  <- sample_n(train.samp,10000)
   pred_oos   <- predict(RF,train.oos)
   summary(round((pred_oos)))
   summary(round((train.oos$Expected)))
   mae(pred_oos,train.oos$Expected)
-
-  print(length(RF$feaSet))
 
   # GRF
   imp     <- RF$importance[,"IncNodePurity"]
