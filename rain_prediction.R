@@ -232,14 +232,52 @@ test.mad.scores$Id_mad     <- NULL
 colnames(test.mad.scores)  <- paste(colnames(test.mad.scores), "_mad", sep = "")
 test             <- cbind(test, test.mad.scores)
 rm(test.mad.scores)
+
+# Final new vars ----------------------------------------------------------
+#test <- readRDS("test_final.RDS")
+test$md                <- test$max_minutes_past_t1 - test$min_minutes_past_t2
+test$Zdr_5x5_50th_diff <- test$Zdr_5x5_50th_t1     - test$Zdr_5x5_50th_t2
+test$minutes_past <- test$max_minutes_past_t1
+
 saveRDS(test, "test_final.RDS")
 
 # Run prediction ----------------------------------------------------------
-predicted  <- predict(GRF,  test)
+test <- readRDS("test_final.RDS")
+test$Ref_5x5_50th_t1[which(test$Ref_5x5_50th_t1 < 0)] <- NA
+test$Ref_5x5_90th_t1[which(test$Ref_5x5_90th_t1 < 0)] <- NA
+test$RefComposite_t1[which(test$RefComposite_t1 < 0)] <- NA
+test$RefComposite_5x5_50th_t1[which(test$RefComposite_5x5_50th_t1 < 0)] <- NA
+test$RefComposite_5x5_90th_t1[which(test$RefComposite_5x5_90th_t1 < 0)] <- NA
+test$Ref_t1[which(test$Ref_t1 < 0)] <- NA
+
+test$Ref_5x5_50th_t1[which(test$Ref_5x5_50th_t1 < 0)] <- NA
+test$Ref_5x5_90th_t1[which(test$Ref_5x5_90th_t1 < 0)] <- NA
+test$RefComposite_t1[which(test$RefComposite_t1 < 0)] <- NA
+test$RefComposite_5x5_50th_t1[which(test$RefComposite_5x5_50th_t1 < 0)] <- NA
+test$RefComposite_5x5_90th_t1[which(test$RefComposite_5x5_90th_t1 < 0)] <- NA
+test$Ref_t1[which(test$Ref_t1 < 0)] <- NA
+test$Ref[which(test$Ref < 0)] <- NA
+
+test <- na.roughfix(test)
+
+test$gampred <- predict(glmGamma,  test)
+test$gampred[test$gampred < 0] <- 0
+
+#predicted     <- predict(rf_train, test)
+predicted_grf <- predict(GRF,  test)
+predicted_rf  <- predict(RF, test)
+summary(predicted_rf)
+summary(predicted_grf)
+
+plot(density(predicted_rf[1:10000]))
+plot(density(predicted_grf[1:10000]))
+predicted <- predicted_rf
+predicted[predicted < 0] <- 0
+summary(predicted)
+plot(density(predicted[1:10000]))
 
 # Write out results -------------------------------------------------------
 test$Prediction <- predicted
 
 res <- sqldf("select Id, Prediction as Expected from test") # group by Id
-#res$max_min <- NULL
-write.csv(res, "id_forecast.csv", row.names = F)
+write.csv(res, "cleaner_gammaglmrf.csv", row.names = F)

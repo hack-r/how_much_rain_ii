@@ -7,6 +7,18 @@
 
 
 # Examine distribution ----------------------------------------------------
+fgr <- fitdist(train.raw$Expected, "gamma") # Raw still omits NA Ref
+
+fg <- fitdist(train$Expected, "gamma")
+    # Fitting of the distribution ' gamma ' by maximum likelihood
+    # Parameters:
+    #   estimate   Std. Error
+    # shape 0.5820057 0.0014584051
+    # rate  0.1386471 0.0005182422
+    # >
+
+
+
 plotdist(train.sample$Expected, histo = TRUE, demp = TRUE)
 plotdist(pred_oos, histo = TRUE, demp = TRUE)
 
